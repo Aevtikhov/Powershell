@@ -6,7 +6,7 @@ $threshold_warn = 1
 $threshold_crit = 2
 $w=0
 $c=0
-$log = "solr_replication.log"
+$log = "$home\Desktop\solr_replication.log"
 
 function sent-email ($logfile, $stat) {
 $smtpServer = "10.0.1.20"
@@ -26,16 +26,16 @@ $smtp.Send($smtpFrom,$smtpTo,$messagesubject,$messagebody)
 }
 
 
-if(Test-Path $home\Desktop\$log){Clear-Content $home\Desktop\$log}  
+if(Test-Path $log){Clear-Content $log}  
 
 
 
 foreach ($solr_host in $solr_hosts) {
   if ($solr_host -eq "192.168.0.1:50001"){
-    Add-Content $home\Desktop\$log "SOLR-REPEATER" 
+    Add-Content $log "SOLR-REPEATER" 
   }
   elseif ($solr_host -eq "192.168.0.2:50001"){
-    Add-Content $home\Desktop\$log "SOLR-SLAVE"
+    Add-Content $log "SOLR-SLAVE"
   }
  foreach ($core in $cores) {
     $jsonResult=Invoke-WebRequest "http://$solr_host/solr/$core/replication?command=details&wt=json" -UseBasicParsing -Method Get
@@ -46,7 +46,10 @@ foreach ($solr_host in $solr_hosts) {
      select -expand details |select -expand slave | select -expand masterDetails | `
      select -expand master | select -ExpandProperty replicableGeneration
 
-    if (!$mastergeneration -or !$localgeneration){ Write-Output 'status = CRITICAL'}    
+    if (!$mastergeneration -or !$localgeneration){ 
+       $content = " $core - status = NULL"
+       Add-Content $log $content
+    }   
      
     $generationdiff = $mastergeneration - $localgeneration
 
@@ -67,6 +70,5 @@ foreach ($solr_host in $solr_hosts) {
  }
 }
 
-if ($w>0){sent-email -logfile $log -stat "WARNING" }
-elseif ($c>0){sent-email -logfile $log -stat "CRITICAL"}
-else {sent-email -logfile $log -stat "OK"}
+if ($w -gt 0 -or $c -gt 0){sent-email -logfile $log -stat "Some problem with replication" }
+else {sent-email -logfile $log -stat "Replication in OK state"}
