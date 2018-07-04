@@ -6,7 +6,7 @@ $threshold_warn = 1
 $threshold_crit = 2
 $w=0
 $c=0
-$logs = "OK.log", "CRITICAL.log", "WARNING.log"
+$log = "solr_replication.log"
 
 function sent-email ($logfile, $stat) {
 $smtpServer = "10.0.1.20"
@@ -26,17 +26,16 @@ $smtp.Send($smtpFrom,$smtpTo,$messagesubject,$messagebody)
 }
 
 
-foreach ($log in $logs){
- if(Test-Path $home\Desktop\$log){Clear-Content $home\Desktop\$log}  
-}
+if(Test-Path $home\Desktop\$log){Clear-Content $home\Desktop\$log}  
+
 
 
 foreach ($solr_host in $solr_hosts) {
-  if ($solr_host -eq "10.229.163.84:50001"){ 
-     foreach ($log in $logs){ Add-Content $home\Desktop\$log "SOLR-REPEATER"}  
+  if ($solr_host -eq "192.168.0.1:50001"){
+    Add-Content $home\Desktop\$log "SOLR-REPEATER" 
   }
-  elseif ($solr_host -eq "10.229.168.224:50001"){
-    foreach ($log in $logs){ Add-Content $home\Desktop\$log "SOLR-SLAVE"}
+  elseif ($solr_host -eq "192.168.0.2:50001"){
+    Add-Content $home\Desktop\$log "SOLR-SLAVE"
   }
  foreach ($core in $cores) {
     $jsonResult=Invoke-WebRequest "http://$solr_host/solr/$core/replication?command=details&wt=json" -UseBasicParsing -Method Get
@@ -51,26 +50,23 @@ foreach ($solr_host in $solr_hosts) {
      
     $generationdiff = $mastergeneration - $localgeneration
 
-    if ($generationdiff > $threshold_warn) {
-      $content = " $core - status = WARNING"
-      $logfileW = "$home\Desktop\WARNING.log"
-      Add-Content $logfileW $content
-      # $w++ 
+    if ($generationdiff -gt $threshold_warn) {
+      $content = " $core - status = WARNING"      
+      Add-Content $log $content
+      $w++ 
     }
-    elseif ($generationdiff > $threshold_crit) {
-      $content = " $core - status = CRITICAL"
-      $logfileC = "$home\Desktop\CRITICAL.log"
-      Add-Content $logfileC $content
-      #$c++ 
+    elseif ($generationdiff -gt $threshold_crit) {
+      $content = " $core - status = CRITICAL"    
+      Add-Content $log $content
+      $c++ 
     }    
     else { 
-      $content = "  $core - status = OK"
-      $logfileO = "$home\Desktop\OK.log"
-      Add-Content $logfileO $content
+      $content = "  $core - status = OK"   
+      Add-Content $log $content
     }
  }
 }
 
-if ($w>0){sent-email -logfile $logfileW -stat "WARNING" }
-elseif ($c>0){sent-email -logfile $logfileC -stat "CRITICAL"}
-else {sent-email -logfile $logfileO -stat "OK"}
+if ($w>0){sent-email -logfile $log -stat "WARNING" }
+elseif ($c>0){sent-email -logfile $log -stat "CRITICAL"}
+else {sent-email -logfile $log -stat "OK"}
